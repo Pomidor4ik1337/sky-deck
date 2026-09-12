@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Скай Дек (Sky Deck)</title>
+    <!-- Подключаем PeerJS для бесплатного P2P-онлайна -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        /* ==========================================
+           1. БАЗОВЫЕ НАСТРОЙКИ И ТЕМНАЯ ГЕЙМЕРСКАЯ ТЕМА
+           ========================================== */
+        :root {
+            --bg-dark: #0f0c1b;
+            --bg-card: rgba(26, 20, 48, 0.85);
+            --bg-card-hover: rgba(38, 30, 70, 0.95);
+            --accent-neon-blue: #00f0ff;
+            --accent-neon-purple: #9d4edd;
+            --accent-gold: #ffd700;
+            --text-main: #f0f4f8;
+            --text-muted: #a0aab8;
+            --border-glow: rgba(0, 240, 255, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #1a1233 0%, #09070f 100%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        .screen {
+            display: none;
+            width: 100%;
+            max-width: 1000px;
+            min-height: 100vh;
+            padding: 20px;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .header {
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+
+        .game-title {
+            font-size: 2.8rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            background: linear-gradient(180deg, #ffffff 0%, #00f0ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 4px;
+        }
+
+        .profile-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            margin-bottom: 20px;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #2b1f4d, #140d2b);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--accent-neon-purple);
+            font-size: 1.8rem;
+        }
+
+        .verified-icon {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            background: #00f0ff;
+            color: #000;
+            font-size: 10px;
+            font-weight: bold;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 8px #00f0ff;
+        }
+
+        .profile-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .profile-info h2 { font-size: 1.3rem; }
+
+        .elo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+
+        .coins-badge {
+            color: var(--accent-gold);
+            font-weight: bold;
+            background: rgba(255, 215, 0, 0.1);
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .shield-badge {
+            color: #4cd137;
+            background: rgba(76, 209, 55, 0.1);
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(76, 209, 55, 0.3);
+        }
+
+        .main-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            border: none;
+            outline: none;
+            cursor: pointer;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            font-weight: 700;
+        }
+
+        .btn-primary-play {
+            background: linear-gradient(135deg, #00f0ff, #7000ff);
+            color: #fff;
+            padding: 20px;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+        }
+
+        .btn-primary-play:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.7);
+        }
+
+        .menu-footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--accent-neon-purple);
+            color: var(--text-main);
+            padding: 12px 20px;
+            font-size: 0.9rem;
+            flex: 1;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(157, 78, 221, 0.2);
+            box-shadow: 0 0 15px rgba(157, 78, 221, 0.4);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active { display: flex; }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
+            position: relative;
+        }
+
+        .modal-title {
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            text-align: center;
+            color: var(--accent-neon-blue);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .modes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-mode {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-main);
+            text-align: left;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-mode:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-neon-blue);
+        }
+
+        .mode-icon { font-size: 1.5rem; }
+        .mode-title { display: block; font-size: 1rem; }
+        .mode-desc { display: block; font-size: 0.75rem; color: var(--text-muted); }
+
+        .input-field {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            padding: 12px;
+            color: #fff;
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-card);
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-glow);
+        }
+
+        .opponent-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .score-board {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--accent-gold);
+            letter-spacing: 2px;
+        }
+
+        .arena {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .block-indicator {
+            background: linear-gradient(135deg, #3a3a3a, #1a1a1a);
+            border: 2px solid #777;
+            padding: 10px 22px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+        }
+
+        .battle-zone {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .card-slot {
+            width: 130px;
+            height: 185px;
+            border: 2px dashed rgba(255, 255, 255, 0.25);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        .vs-divider {
+            font-weight: 900;
+            font-size: 1.8rem;
+            color: var(--accent-neon-blue);
+        }
+
+        .round-status {
+            font-size: 1.1rem;
+            color: var(--accent-gold);
+            min-height: 40px;
+            text-align: center;
+            font-weight: 700;
+            padding: 0 10px;
+        }
+
+        .hand {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding-bottom: 10px;
+        }
+
+        .card {
+            width: 115px;
+            height: 165px;
+            background: linear-gradient(145deg, #251b42, #16102b);
+            border: 2px solid var(--accent-neon-purple);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 6px;
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-12px) scale(1.05);
+            box-shadow: 0 12px 25px rgba(157, 78, 221, 0.7);
+            border-color: var(--accent-neon-blue);
+        }
+
+        .card-icon { font-size: 2.2rem; }
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-align: center;
+            line-height: 1.1;
+            color: #fff;
+        }
+
+        .card-stats {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            font-size: 0.9rem;
+            font-weight: 900;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            padding-top: 6px;
+        }
+
+        .stat-hp { color: #ff4757; }
+        .stat-str { color: #ffa502; }
+
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 12px;
+            color: #ffffff;
+        }
+
+        .rank-noob { background: linear-gradient(135deg, #8D5524, #C68642); }
+        .rank-amateur { background: linear-gradient(135deg, #4a69bd, #1e3799); }
+        .rank-pro { background: linear-gradient(135deg, #78e08f, #38ada9); }
+        .rank-master { background: linear-gradient(135deg, #e55039, #b71540); }
+        .rank-legend { background: linear-gradient(135deg, #f6b93b, #fa983a); }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 600px) {
+            .game-title { font-size: 2.2rem; }
+            .card { width: 85px; height: 125px; padding: 6px 3px; }
+            .card-icon { font-size: 1.5rem; }
+            .card-title { font-size: 0.65rem; }
+            .card-stats { font-size: 0.7rem; }
+            .card-slot { width: 95px; height: 135px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. ГЛАВНОЕ МЕНЮ -->
+    <div id="main-menu" class="screen active">
+        <header class="header">
+            <h1 class="game-title">СКАЙ ДЕК</h1>
+            <p class="subtitle">Цивилизация Элитр: Арена Мобов</p>
+        </header>
+
+        <section class="profile-card">
+            <div class="avatar-container">
+                <div class="avatar-placeholder">👤</div>
+                <span id="verified-icon" class="verified-icon hidden" title="Поддержал проект">✔</span>
+            </div>
+            <div class="profile-info">
+                <h2 id="player-nickname">Гость</h2>
+                <div id="rank-badge" class="rank-badge rank-noob">Нуб III</div>
+                <div class="elo-container">
+                    <span id="elo-display">0 ЭЛО</span>
+                    <span id="coins-display" class="coins-badge">💰 500 монет</span>
+                    <span id="shield-status" class="shield-badge">🛡️ Защита</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="main-actions">
+            <button id="btn-open-modes" class="btn btn-primary-play">⚔️ ИГРАТЬ</button>
+        </section>
+
+        <footer class="menu-footer">
+            <button id="btn-change-nickname" class="btn btn-secondary">✏️ Изменить Ник</button>
+            <button id="btn-donate" class="btn btn-secondary">❤️ Поддержать</button>
+        </footer>
+    </div>
+
+    <!-- 2. МОДАЛКА: ВЫБОР РЕЖИМА -->
+    <div id="modal-modes" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" data-close="modal-modes">✕</button>
+            <h3 class="modal-title">Выберите режим</h3>
+
+            <div class="modes-list">
+                <button class="btn btn-mode" data-mode="ranked">
+                    <span class="mode-icon">🏆</span>
+                    <div>
+                        <strong class="mode-title">Рейтинговый матч</strong>
+                        <span class="mode-desc">Игра с другом по коду (за ЭЛО)</span>
+                    </div>
+                </button>
+
+                <button class="btn btn-mode" data-mode="bets">
+                    <span class="mode-icon">💰</span>
+                    <div>
+                        <strong class="mode-title">Игра на ставки</strong>
+                        <span class="mode-desc">Сражение на монеты по коду</span>
+                    </div>
+                </button>
+
+                <div id="bet-box" class="hidden" style="margin-top: 5px;">
+                    <input type="number" id="bet-input" class="input-field" value="50" min="10" placeholder="Ставка монет">
+                </div>
+
+                <button class="btn btn-mode" data-mode="bot">
+                    <span class="mode-icon">🤖</span>
+                    <div>
+                        <strong class="mode-title">Тренировка с Ботом</strong>
+                        <span class="mode-desc">Одиночная игра для практики</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. МОДАЛКА: P2P ПОДКЛЮЧЕНИЕ -->
+    <div id="modal-p2p" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" data-close="modal-p2p">✕</button>
+            <h3 class="modal-title">Игра с другом</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="btn-create-room" class="btn btn-secondary" style="background: var(--accent-neon-purple)">🏠 Создать комнату</button>
+
+                <div id="room-code-box" class="hidden" style="text-align: center; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
+                    <p style="font-size: 0.8rem;">Отправь код комнаты другу:</p>
+                    <h2 id="my-peer-id" style="color: var(--accent-neon-blue); font-family: monospace;">Генерация...</h2>
+                </div>
+
+                <hr style="border-color: var(--border-glow); margin: 5px 0;">
+
+                <input type="text" id="join-code-input" class="input-field" placeholder="Введи код комнаты друга">
+                <button id="btn-join-room" class="btn btn-secondary" style="background: var(--accent-neon-blue); color:#000;">🔌 Войти по коду</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. ИГРОВОЙ ЭКРАН -->
+    <div id="game-screen" class="screen">
+        <header class="game-header">
+            <div class="opponent-profile">
+                <div id="opp-badge" class="rank-badge rank-noob">Соперник</div>
+                <span id="opp-name">Противник</span>
+            </div>
+            <div class="score-board">
+                <span id="player-score">0</span> : <span id="opp-score">0</span>
+            </div>
+        </header>
+
+        <main class="arena">
+            <div id="block-indicator" class="block-indicator">
+                <span class="block-icon">⚙️</span>
+                <span id="block-name">ЖЕЛЕЗНЫЙ БЛОК</span>
+            </div>
+
+            <div class="battle-zone">
+                <div id="opp-played-card-slot" class="card-slot"></div>
+                <div class="vs-divider">VS</div>
+                <div id="player-played-card-slot" class="card-slot"></div>
+            </div>
+
+            <div id="round-status" class="round-status">Сделайте ваш ход</div>
+        </main>
+
+        <div id="player-hand" class="hand player-hand"></div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
